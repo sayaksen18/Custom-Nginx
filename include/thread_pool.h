@@ -10,6 +10,8 @@
 #include <future>
 #include <stdexcept>
 
+using namespace std;
+
 class ThreadPool {
 public:
     explicit ThreadPool(size_t num_threads);
@@ -17,32 +19,32 @@ public:
 
     template<class F, class... Args>
     auto enqueue(F&& f, Args&&... args) 
-        -> std::future<typename std::invoke_result_t<F, Args...>>;
+        -> future<typename invoke_result_t<F, Args...>>;
 
 private:
-    std::vector<std::thread> workers;
-    std::queue<std::function<void()>> tasks;
+    vector<thread> workers;
+    queue<function<void()>> tasks;
 
-    std::mutex queue_mutex;
-    std::condition_variable condition;
+    mutex queue_mutex;
+    condition_variable condition;
     bool stop;
 };
 
 template<class F, class... Args>
 auto ThreadPool::enqueue(F&& f, Args&&... args) 
-    -> std::future<typename std::invoke_result_t<F, Args...>>
+    -> future<typename invoke_result_t<F, Args...>>
 {
-    using return_type = typename std::invoke_result_t<F, Args...>;
+    using return_type = typename invoke_result_t<F, Args...>;
 
-    auto task = std::make_shared< std::packaged_task<return_type()> >(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+    auto task = make_shared< packaged_task<return_type()> >(
+            bind(forward<F>(f), forward<Args>(args)...)
         );
         
-    std::future<return_type> res = task->get_future();
+    future<return_type> res = task->get_future();
     {
-        std::unique_lock<std::mutex> lock(queue_mutex);
+        unique_lock<mutex> lock(queue_mutex);
         if(stop) {
-            throw std::runtime_error("enqueue on stopped ThreadPool");
+            throw runtime_error("enqueue on stopped ThreadPool");
         }
         tasks.emplace([task](){ (*task)(); });
     }
